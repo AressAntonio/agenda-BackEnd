@@ -1,3 +1,8 @@
+//exportando controlador de variable de entorno
+require('dotenv').config();
+//  Exportando DEFINICIONES DE MONGOOSE desde models
+const Person = require('./models/person');
+
 //CREANDO SERVIDOR WEB CON EXPRESS
 const express = require('express');
 const morgan = require('morgan'); //middleware que trae info de las peticiones a las rutas del webServer
@@ -18,30 +23,6 @@ app.use((req, res, next) => {
     next();
 });
 
-//DATOS DE LA api
-let persons = [
-    { 
-      "id": 1,
-      "name": "Arto Hellas", 
-      "number": "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    }
-];
-
 //TRAYENDO RUTA PRINCIPAL DE LA API
 app.get('/', (request, response)=>{
 
@@ -51,7 +32,11 @@ app.get('/', (request, response)=>{
 //trayendo todos los datos de la API
 app.get('/api/persons', (request, response)=>{
 
-    response.json(persons);
+    Person.find({}).then(persons =>{
+
+        response.json(persons);
+    })
+   
 })
 
 //TRAYENDO INFO DE LA API
@@ -59,7 +44,7 @@ app.get('/api/info', (request, response)=>{
 
     //Codigo para mostar info de la API-Agenda
     const horaActual = new Date().toLocaleString();
-    const cantidadEntradas = persons.length;
+    const cantidadEntradas = Person.length;
 
     const respuestaInfo = ()=>{
     return `
@@ -79,38 +64,40 @@ app.get('/api/info', (request, response)=>{
 //TRAYENDO INFO DE LA API POR ID
 app.get('/api/persons/:id', (request, response)=>{
 
-    const id = Number(request.params.id);
-    const person = persons.find(person => person.id === id);
-
-    if(person){
+    Person.findById(request.params.id).then(person =>{
+        
+        console.log(person);
         response.json(person);
-    }else{
-        response.status(404).end();
-    };
-    console.log(person);
-    response.json(person);
+    })
+    
 })
 
 //BORRAR RECURSO
 app.delete('/api/persons/:id', (request, response)=>{
 
-    const id = Number(request.params.id);
-    persons = persons.filter(person => person.id !== id);
+    Person.deleteOne({_id: request.params.id}).then(() =>{
+        //GET ALL PERSONS
+        Person.find().then(persons =>{
+            //filter person list of eleminate the person eliminate
+            const filteredPersons = persons.filter(person => person._id.toString() !== request.params.id);
+            
+            //send filter list
+            response.status(200).json(filteredPersons);
+        })
+        .catch(error =>{
+            console.error(error);
+            response.status(500).json({error:'Error al obtener las Personas'});
+        });
+    })
+    .catch(error => {
+            console.error(error);
+            response.status(500).json({ error: 'Error al eliminar la persona' });
+    });
 
-    response.status(204).end();
+    //response.status(204).end();
 })
 
 //CREANDO NUEVO OBJETO
-const generateId = () => {
-    const usedIds = new Set(persons.map(p => p.id)); // Crea un conjunto con los IDs existentes
-    let newId;
-    do {
-        newId = Math.floor(Math.random() * 1000000); // Genera un ID aleatorio de 6 dígitos
-    } while (usedIds.has(newId)); // Repite hasta que el ID sea único
-    return newId;
-};
-
-
 app.post('/api/persons', (request, response)=>{
 
     const body = request.body;
@@ -124,14 +111,15 @@ app.post('/api/persons', (request, response)=>{
         });
     };
 
-    const person = {
-        id: generateId(),
+    const person = new Person({
         name: name,
-        number: number
-    };
-
-    persons = persons.concat(person);
-    response.json(person);
+        number: number,
+    })
+    
+    person.save().then(savedPerson =>{
+        response.json(savedPerson);
+    })
+    
 })
 
 //actualizar objeto
@@ -143,14 +131,26 @@ app.put('/api/persons/:name', (request, response)=>{
     const personName = body.name; // Obtener el nombre de la persona desde la URL
     const updatedNumber = body.number; // Obtener el nuevo número del cuerpo de la solicitud
 
-    const person = persons.find(p => p.name === personName); 
-   
-    if (person) {
-        person.number = updatedNumber; // Actualizar el número
-        response.json(person); // Devolver la persona actualizada
-    } else {
-        response.status(404).json({ message: 'Persona no encontrada' }); // Maneja el caso en que no se encuentra la persona
-    }
+    Person.findOne({ name: personName }) // Encuentra la persona por nombre
+     .then(person => {
+         if (person) {
+             person.number = updatedNumber; // Actualiza el número de la persona
+             person.save() // Guarda los cambios en la base de datos
+                 .then(updatedPerson => {
+                     response.status(200).json(updatedPerson); // Envía la persona actualizada al frontend
+                 })
+                 .catch(error => {
+                     console.error(error);
+                     response.status(500).json({ error: 'Error al actualizar la persona' });
+                 });
+         } else {
+             response.status(404).json({ message: 'Persona no encontrada' });
+         }
+     })
+     .catch(error => {
+         console.error(error);
+         response.status(500).json({ error: 'Error al buscar la persona' });
+     });
 })
 
 
@@ -158,6 +158,6 @@ app.put('/api/persons/:name', (request, response)=>{
 
 
 //definicion de puerto para levantar servidor web
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 app.listen(PORT);
 console.log(`Server runnig on port http://localhost:${PORT}`);
