@@ -23,6 +23,23 @@ app.use((req, res, next) => {
     next();
 });
 
+//middleware controlador de solicitudes de EndPoints desconocidos
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({error: 'unknown endpoint'})
+};
+
+//middleware controlador de errores
+const errorHandler = (error, request, response, next)=>{
+    console.error(error.message);
+
+    if(error.name === 'CastError'){
+      response.status(404).send({error: 'malformatted id'})
+    }
+
+    next(error)
+    
+};
+
 //TRAYENDO RUTA PRINCIPAL DE LA API
 app.get('/', (request, response)=>{
 
@@ -30,50 +47,64 @@ app.get('/', (request, response)=>{
 });
 
 //trayendo todos los datos de la API
-app.get('/api/persons', (request, response)=>{
+app.get('/api/persons', (request, response, next)=>{
 
     Person.find({}).then(persons =>{
 
-        response.json(persons);
+        if(persons){
+            response.json(persons);
+        }else{
+            response.status(404).end();
+        }
+       
     })
+    .catch(error => next(error));
    
-})
+});
 
 //TRAYENDO INFO DE LA API
-app.get('/api/info', (request, response)=>{
+app.get('/api/info', (request, response, next)=>{
 
     //Codigo para mostar info de la API-Agenda
     const horaActual = new Date().toLocaleString();
-    const cantidadEntradas = Person.length;
 
-    const respuestaInfo = ()=>{
-    return `
-        <h1>API-AGENDA||INFO</h1>
-        <p>
-            La agenda tiene informacion de <strong>${cantidadEntradas}</strong> personas, 
-            Ciudad de Mexico <strong>${horaActual}</strong> (Zona horaria America Central).
-            <br>
-            <a href="http://localhost:3001/">Regresar a pagina principal</a>
-        </p>
-    `;
-    };
+    Person.find().then(person =>{
+        const respuestaInfo = ()=>{
+            return `
+                <h1>API-AGENDA||INFO</h1>
+                <p>
+                    La agenda tiene informacion de <strong>${person.length}</strong> personas, 
+                    Ciudad de Mexico <strong>${horaActual}</strong> (Zona horaria America Central).
+                    <br>
+                    <a href="http://localhost:3001/">Regresar a pagina principal</a>
+                </p>`;
+        };
 
-    response.send(respuestaInfo());
-})
+        response.send(respuestaInfo())    
+    })
+    .catch(error => next(error));
+
+});
 
 //TRAYENDO INFO DE LA API POR ID
-app.get('/api/persons/:id', (request, response)=>{
+app.get('/api/persons/:id', (request, response, next)=>{
 
     Person.findById(request.params.id).then(person =>{
         
-        console.log(person);
-        response.json(person);
+        if(person){
+          console.log(person);
+          response.json(person);
+        }else{
+            response.status(404).end();
+        }
+        
     })
+    .catch(error => next(error));
     
 })
 
 //BORRAR RECURSO
-app.delete('/api/persons/:id', (request, response)=>{
+app.delete('/api/persons/:id', (request, response, next)=>{
 
     Person.deleteOne({_id: request.params.id}).then(() =>{
         //GET ALL PERSONS
@@ -84,21 +115,14 @@ app.delete('/api/persons/:id', (request, response)=>{
             //send filter list
             response.status(200).json(filteredPersons);
         })
-        .catch(error =>{
-            console.error(error);
-            response.status(500).json({error:'Error al obtener las Personas'});
-        });
+        .catch(error => next(error));
     })
-    .catch(error => {
-            console.error(error);
-            response.status(500).json({ error: 'Error al eliminar la persona' });
-    });
-
-    //response.status(204).end();
-})
+    .catch(error => next(error));
+ 
+});
 
 //CREANDO NUEVO OBJETO
-app.post('/api/persons', (request, response)=>{
+app.post('/api/persons', (request, response, next)=>{
 
     const body = request.body;
     const name = body.name;
@@ -119,12 +143,13 @@ app.post('/api/persons', (request, response)=>{
     person.save().then(savedPerson =>{
         response.json(savedPerson);
     })
+    .catch(error => next(error));
     
-})
+});
 
 //actualizar objeto
 
-app.put('/api/persons/:name', (request, response)=>{
+app.put('/api/persons/:name', (request, response, next)=>{
 
     
     const body = request.body;
@@ -139,19 +164,17 @@ app.put('/api/persons/:name', (request, response)=>{
                  .then(updatedPerson => {
                      response.status(200).json(updatedPerson); // Envía la persona actualizada al frontend
                  })
-                 .catch(error => {
-                     console.error(error);
-                     response.status(500).json({ error: 'Error al actualizar la persona' });
-                 });
+                 .catch(error => next(error));
          } else {
              response.status(404).json({ message: 'Persona no encontrada' });
          }
      })
-     .catch(error => {
-         console.error(error);
-         response.status(500).json({ error: 'Error al buscar la persona' });
-     });
-})
+     .catch(error => next(error));
+
+});
+
+app.use(unknownEndpoint);
+app.use(errorHandler);
 
 
 
