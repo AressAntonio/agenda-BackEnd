@@ -1,18 +1,23 @@
-//exportando controlador de variable de entorno
+//importando controlador de variable de entorno
 require('dotenv').config();
-//  Exportando DEFINICIONES DE MONGOOSE desde models
+//importando DEFINICIONES DE MONGOOSE desde models
 const Person = require('./models/person');
 
 //CREANDO SERVIDOR WEB CON EXPRESS
 const express = require('express');
+
 const morgan = require('morgan'); //middleware que trae info de las peticiones a las rutas del webServer
+
 const cors = require('cors'); //middleware que perminte la solicitud de informacion entre diferentes hosting
-const bodyParser = require('body-parser'); 
+
+const bodyParser = require('body-parser');
+
 const app = express();
+
 app.use(bodyParser.json());
 app.use(express.static('dist')); //middleware necesario para leer archivos static
 app.use(cors());
-app.use(morgan('tiny'));
+app.use(morgan('tiny')); //middleware de monitoreo en consola de peticiones a endpoints
 app.use(express.json());
 
 // Middleware personalizado para registrar el cuerpo de las solicitudes POST.
