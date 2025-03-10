@@ -15,7 +15,7 @@ const bodyParser = require('body-parser');
 const app = express();
 
 app.use(bodyParser.json());
-app.use(express.static('dist')); //middleware necesario para leer archivos static
+app.use(express.static('docs')); //middleware necesario para leer archivos static
 app.use(cors());
 app.use(morgan('tiny')); //middleware de monitoreo en consola de peticiones a endpoints
 app.use(express.json());
@@ -38,7 +38,9 @@ const errorHandler = (error, request, response, next)=>{
     console.error(error.message);
 
     if(error.name === 'CastError'){
-      response.status(404).send({error: 'malformatted id'})
+      response.status(400).send({error: 'malformatted id'})
+    } else if(error.name === 'ValidationError'){
+        return response.status(400).json({error: error.message})
     }
 
     next(error)
@@ -161,7 +163,7 @@ app.put('/api/persons/:name', (request, response, next)=>{
     const personName = body.name; // Obtener el nombre de la persona desde la URL
     const updatedNumber = body.number; // Obtener el nuevo número del cuerpo de la solicitud
 
-    Person.findOne({ name: personName }) // Encuentra la persona por nombre
+    Person.findOne({ name: personName }, {runValidators: true, context: 'query'}) // Encuentra la persona por nombre
      .then(person => {
          if (person) {
              person.number = updatedNumber; // Actualiza el número de la persona
@@ -171,7 +173,7 @@ app.put('/api/persons/:name', (request, response, next)=>{
                  })
                  .catch(error => next(error));
          } else {
-             response.status(404).json({ message: 'Persona no encontrada' });
+             response.status(404).json({ message: 'Persona no actualizda' });
          }
      })
      .catch(error => next(error));
