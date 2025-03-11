@@ -188,6 +188,7 @@ app.use(errorHandler);
 
 
 //definicion de puerto para levantar servidor web
+// eslint-disable-next-line no-undef
 const PORT = process.env.PORT;
 app.listen(PORT);
 console.log(`Server runnig on port http://localhost:${PORT}`);
